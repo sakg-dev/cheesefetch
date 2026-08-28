@@ -12,7 +12,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // };
 use std::process::{ Command, Stdio };
 use std::str;
-use regex::Regex; // TODO: use scary regex pls instead of split and other tricks
 
 fn main() {
     let mut sys = System::new_all();
@@ -66,11 +65,10 @@ fn main() {
     // let window = Window::new(&event_loop).unwrap();
     // window.current_monitor();
     // nothing working perfectly hence running cmd to get as done in freshfetch
-    #[derive(Debug)]
     struct Resolution {
-        width: u32,
         height: u32,
-        refresh_rate: f32
+        width: u32,
+        refresh_rate: u32
     }
     let resolution = if cfg!(target_os = "linux") {
         let cmd = Command::new("xrandr")
@@ -88,27 +86,14 @@ fn main() {
         // println!("{:?}", result.trim().split(" ").collect::<Vec<_>>())
         let outputs =  result.trim().split(" ").collect::<Vec<_>>().iter().filter(|&s| s != &"").cloned().collect::<Vec<_>>();
         let display_size:Vec<u32> = outputs[0].split("x").collect::<Vec<_>>().iter().map(|&s| s.parse::<u32>().unwrap()).collect();
-        let refresh_rate = outputs[1].split("*").collect::<Vec<_>>()[0].parse::<f32>().unwrap();
-        Resolution {
-            width: display_size[0],
-            height: display_size[1],
-            refresh_rate: refresh_rate
-        }
+        let refresh_rate = outputs[1]
+        println!("{:?}", refresh_rate);
+        true
     } else {
-        // TODO: Write Command for Windows and MacOs, for now returning dummy result
-        // for windows this cmd works(used ai to get this cmd): Get-CimInstance Win32_VideoController | ForEach-Object { "$($_.VideoModeDescription), $($_.CurrentRefreshRate)" }
-        Resolution {
-            width: 1600,
-            height: 900,
-            refresh_rate: 120.0 // high to differentiate from og val
-        }
+        Command::new("windowish thingy").output().unwrap();
+        false
     };
    
-    // WM
-
-    
-    
-    // Shell
 }
 
 
