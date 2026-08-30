@@ -12,7 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // };
 use std::process::{ Command, Stdio };
 use std::str;
-use regex::Regex; // TODO: use scary regex pls instead of split and other tricks
+// use regex::Regex; // TODO: use scary regex pls instead of split and other tricks
 
 fn main() {
     let mut sys = System::new_all();
@@ -72,7 +72,7 @@ fn main() {
         height: u32,
         refresh_rate: f32
     }
-    let resolution = if cfg!(target_os = "linux") {
+    let _resolution = if cfg!(target_os = "linux") {
         let cmd = Command::new("xrandr")
             .stdout(Stdio::piped())
             .spawn()
@@ -105,10 +105,20 @@ fn main() {
     };
    
     // WM
-
-    
+    let mut bind = Command::new("bash");
+    let wm_binary = bind.args(["-c", r###"id=$(xprop -root -notype _NET_SUPPORTING_WM_CHECK) && id=${id##* } && wm=$(xprop -id "$id" -notype -len 100 -f _NET_WM_NAME 8t) && wm=${wm/*WM_NAME = } && wm=${wm/\"} && wm=${wm/\"*} && printf $wm"###]).output().unwrap().stdout;
+    let _wm = str::from_utf8(&wm_binary).unwrap();
     
     // Shell
+    let system = sysinfo::System::new_with_specifics(
+        sysinfo::RefreshKind::everything().with_processes(
+            sysinfo::ProcessRefreshKind::everything()
+        )
+    );
+    let my_pid = sysinfo::get_current_pid().unwrap();
+    let parent_pid = system.process(my_pid).unwrap().parent().unwrap();
+    let parent_process = system.process(parent_pid).unwrap();
+    let _shell = parent_process.name().to_str().unwrap();
 }
 
 
