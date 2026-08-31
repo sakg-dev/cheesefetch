@@ -13,40 +13,42 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::process::{ Command, Stdio };
 use std::str;
 // use regex::Regex; // TODO: use scary regex pls instead of split and other tricks
+use color_print::{ cprintln, cprint };
+
+#[derive(Debug)] 
+struct Cpu {
+    brand: String,
+    mul: u32,
+    frequency: f32
+}
 
 fn main() {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let _os = String::from("{System::name().unwrap()} {System::os_version().unwrap()} {System::cpu_arch()}");
-    let _host = System::host_name();
-    let _kernel = System::kernel_long_version();
+    let os = format!("{} {} {}", System::name().unwrap(), System::os_version().unwrap(), System::cpu_arch());
+    let host = System::host_name().unwrap();
+    let kernel = System::kernel_long_version();
 
     let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
     let boot_time = System::boot_time();
-    let _uptime = sec_to_readeable_time(current_time - boot_time);
+    let uptime = sec_to_readeable_time(current_time - boot_time);
 
-    let _available_mem = sys.total_memory() / (1024*1024) as u64;
-    let _free_mem = sys.free_memory() / (1024*1024) as u64;
+    let available_mem = sys.total_memory() / (1024*1024) as u64;
+    let free_mem = sys.free_memory() / (1024*1024) as u64;
 
     let mboard = Motherboard::new().unwrap();
     let board_name = mboard.name().unwrap();
     let board_vendor = mboard.vendor_name().unwrap();
     let _board = format!("{} {}", board_vendor, board_name);
 
-    #[derive(Debug)]
-    struct Cpu {
-        brand: String,
-        mul: u32,
-        frequency: u64
-    }
     let mut cpus: Vec<Cpu> = Vec::new();
     for cpu in sys.cpus() {
         if cpus.iter().any(|c| c.brand.as_str() == cpu.brand()) {
             // println!("Found duplicate");
             let idx = cpus.iter().position(|c| c.brand.as_str() == cpu.brand()).unwrap();
             cpus[idx].mul += 1;
-            let current_freq = cpu.frequency();
+            let current_freq = cpu.frequency() as f32 / 1000.0;
             if cpus[idx].frequency < current_freq {
                 cpus[idx].frequency = current_freq;
             }
@@ -54,7 +56,7 @@ fn main() {
             let new_cpu = Cpu{
                 brand: cpu.brand().to_string(),
                 mul: 1,
-                frequency: cpu.frequency()
+                frequency: cpu.frequency() as f32 / 1000.0
             };
             cpus.push(new_cpu);
         }
@@ -72,7 +74,7 @@ fn main() {
         height: u32,
         refresh_rate: f32
     }
-    let _resolution = if cfg!(target_os = "linux") {
+    let resolution = if cfg!(target_os = "linux") {
         let cmd = Command::new("xrandr")
             .stdout(Stdio::piped())
             .spawn()
@@ -107,7 +109,7 @@ fn main() {
     // WM
     let mut bind = Command::new("bash");
     let wm_binary = bind.args(["-c", r###"id=$(xprop -root -notype _NET_SUPPORTING_WM_CHECK) && id=${id##* } && wm=$(xprop -id "$id" -notype -len 100 -f _NET_WM_NAME 8t) && wm=${wm/*WM_NAME = } && wm=${wm/\"} && wm=${wm/\"*} && printf $wm"###]).output().unwrap().stdout;
-    let _wm = str::from_utf8(&wm_binary).unwrap();
+    let wm = str::from_utf8(&wm_binary).unwrap();
     
     // Shell
     let system = sysinfo::System::new_with_specifics(
@@ -118,9 +120,56 @@ fn main() {
     let my_pid = sysinfo::get_current_pid().unwrap();
     let parent_pid = system.process(my_pid).unwrap().parent().unwrap();
     let parent_process = system.process(parent_pid).unwrap();
-    let _shell = parent_process.name().to_str().unwrap();
+    let shell = parent_process.name().to_str().unwrap();
+
+    // -------------------
+
+    // cprintln!("Hii <c>Hii</>");
+    // cprintln!("<bold><bold> A <bold,blue> B </> C </></>");
+    cprintln!("<bold, cyan>{}</>", host);
+    cprintln!("{}", "—".repeat(host.len()));
+    cprintln!("<bold><cyan>OS</>:</> {}", os);
+    cprintln!("<bold><cyan>Kernel</>:</> {}", kernel);
+    cprintln!("<bold><cyan>Uptime</>:</> {}", uptime);
+    cprintln!("<bold><cyan>Packages</>:</> undefined");
+    cprintln!("<bold><cyan>Shell</>:</> {}", shell);
+    cprintln!("<bold><cyan>Resolution</>:</> {}x{} {}Hz", resolution.width, resolution.height, resolution.refresh_rate);
+    cprintln!("<bold><cyan>WM</>:</> {}", wm);
+    cpu_print(cpus);
+    cprintln!("<bold><cyan>GPU</>:</> {}", "undefined");
+    cprintln!("<bold><cyan>Memory</>:</> {}MB / {}MB", free_mem, available_mem);
+    block_clr_print();
 }
 
+fn block_clr_print() {
+    // TODO: flugh thingy
+    println!("");
+    cprint!("<bg:black>   </>");
+    cprint!("<bg:red>   </>");
+    cprint!("<bg:green>   </>");
+    cprint!("<bg:yellow>   </>");
+    cprint!("<bg:blue>   </>");
+    cprint!("<bg:magenta>   </>");
+    cprint!("<bg:cyan>   </>");
+    cprintln!("<bg:bright-black>   </>");
+    cprint!("<bg:rgb(79,79,79)>   </>");
+    cprint!("<bg:bright-red>   </>");
+    cprint!("<bg:bright-green>   </>");
+    cprint!("<bg:bright-yellow>   </>");
+    cprint!("<bg:bright-blue>   </>");
+    cprint!("<bg:bright-magenta>   </>");
+    cprint!("<bg:rgb(122,255,255)>   </>");
+    cprintln!("<bg:rgb(211,211,211)>   </>");
+}
+
+fn cpu_print(cpus: Vec<Cpu>) {
+    cprint!("<bold><cyan>CPU</>: </>");
+    for cpu in cpus {
+        cprint!("{} ({}) @ {:.1}GHz", cpu.brand, cpu.mul, cpu.frequency)
+    }
+    cprintln!("");
+    // TODO: DO the flush thingy
+}
 
 fn sec_to_readeable_time(secs: u64) -> String {
     if secs < 60 {
