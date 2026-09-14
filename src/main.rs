@@ -14,6 +14,7 @@ use std::process::{ Command, Stdio };
 use std::str;
 // use regex::Regex; // TODO: use scary regex pls instead of split and other tricks
 use color_print::{ cprintln, cprint };
+use std::fs;
 
 #[derive(Debug)] 
 struct Cpu {
@@ -139,6 +140,30 @@ fn main() {
     cprintln!("<bold><cyan>GPU</>:</> {}", "undefined");
     cprintln!("<bold><cyan>Memory</>:</> {}MB / {}MB", free_mem, available_mem);
     block_clr_print();
+
+    // --------------------
+
+    draw_ascii()
+}
+
+fn draw_ascii() {
+    let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
+    // println!("{:?}", asci);
+    for _line in ascii.split("\n"){
+        // let a = "<yellow>hey</>";
+        // cprintln!("{}", cformat!("{a}"));
+        // cprintln!("{}", String::from(a));
+        // cprintln!("{line}"); 
+        // TODO: can't cprint a dynamic string as this lib supports compile time str only hence doing that
+    }
+
+    // println!("{:?}", ascii.split("\n").collect::<Vec<&str>>());
+    let lines = ["                            __+", "                  <yellow>__+~~~~~~~    ~~~~~~+__</>", "            __+~~~                       ~~~~~~+_", "       _+~~~                       _-----------------+", "   +~  _------------------------~+                   |", "+~~~~+                                               |", "|                                                    |", "|                                                    |", "|                                                    |", "|                                                    |", "|                                                    |", "|                                                    |", "|                                    _--------------+", "|         _-----------------------+/", "+------+/", ""];
+    for line in lines{
+        cprintln!("{line}");
+    }
+    let txt = "<yellow>Hii</>";
+    cprintln!("{}", txt);
 }
 
 fn block_clr_print() {
