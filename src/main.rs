@@ -144,43 +144,38 @@ fn str_to_color(color: &str, text: &str) -> ColoredString {
 }
 
 fn print_ascii_line(txt: String) {
-    let re = Regex::new(r"</*[a-z]*>").unwrap();
-
-    let mut tag_pairs:Vec<(Match, Match)> = Vec::new();
-    let mut reg_res = re.find_iter(&txt);
-
-    let mut skip = false;
-    for (idx, m) in re.find_iter(&txt).enumerate() {
-        // skipping the closing tag as we want both in single tuple inside a vector
-        if skip {
-            skip = false;
-            continue;
-        }
-        tag_pairs.push((m, reg_res.nth(idx+1).unwrap()));
-        skip = true;
+    #[derive(Debug)]
+    struct Tag {
+        text: String,
+        start: usize,
+        end: usize
     }
-    
-    if tag_pairs.len() == 0 {
-        println!("{txt}");
-    } else {
-        let start_idx = tag_pairs[0].0.start();
-        let text_before_color = &txt[..start_idx];
-        print!("{text_before_color}");
-
-        for txt_part in tag_pairs {
-            let color_str = txt_part.0.as_str().replace(&['<', '>'], "");
-            print!("{}", str_to_color(&color_str, &txt[txt_part.0.end()..txt_part.1.start()]));
-            std::io::stdout().flush().unwrap();
-            println!("");
-        }
+    #[derive(Debug)]
+    enum Chunk {
+        Tagged(Tag),
+        Untagged(String)
     }
+
+    let re = Regex::new(r"(<[a-z]*>[a-zA-Z0-9 ]*</[a-z]*>)|[a-zA-Z0-9 ]*").unwrap();
+
+    let tags_reg = Regex::new(r"<[a-z]*>[a-zA-Z0-9 ]*</[a-z]*>").unwrap();
+ 
+    let chunks = re.find_iter(&txt).map(|m| m.as_str()).map(|m| { // get all chunks regardless tag or untag
+        let contains_tag = tags_reg.find(m); // inside each chunk check if it contains tag or not
+        if let Some(tag) = contains_tag { // contain tag
+            println!("{:?}", tag);
+            Chunk::Untagged(String::from("tagged"))
+        } else { // if its a text only
+            Chunk::Untagged(m.to_string())
+        }
+    });
+    println!("{:?}", chunks.collect::<Vec<_>>());
 }
 
 fn draw_ascii() {
     let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
     for _line in ascii.split("\n"){
-        print_ascii_line(line.to_string());
-        // print_ascii_line(String::from("<yellow>Hii</yellow> Whatsup! <green>I am fine</green> <red>what about you</red>"));
+        print_ascii_line(String::from("<yellow>Hii</yellow> Whatsup! <green>I am fine</green> <red>what about you</red>"));
     }
 }
 
