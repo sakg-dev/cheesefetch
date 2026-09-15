@@ -146,6 +146,7 @@ fn str_to_color(color: &str, text: &str) -> ColoredString {
 fn print_ascii_line(txt: String) {
     #[derive(Debug)]
     struct Tag {
+        tag_name: String,
         text: String,
         start: usize,
         end: usize
@@ -156,27 +157,35 @@ fn print_ascii_line(txt: String) {
         Untagged(String)
     }
 
-    let re = Regex::new(r"(<[a-z]*>[a-zA-Z0-9 ]*</[a-z]*>)|[a-zA-Z0-9 ]*").unwrap();
-
-    let tags_reg = Regex::new(r"<[a-z]*>[a-zA-Z0-9 ]*</[a-z]*>").unwrap();
+    let reg = Regex::new(r"(<[a-z]+>[a-zA-Z0-9 ]+</[a-z]+>)|[a-zA-Z0-9 ]+").unwrap(); // for dividing into chunks
+    let tags_reg = Regex::new(r"<[a-z]+>[a-zA-Z0-9 ]+</[a-z]+>").unwrap(); // for identifying whether we have tags or not
+    let tags_part_reg = Regex::new(r"<[a-z]+>|[a-zA-Z0-9 ]+").unwrap();
  
-    let chunks = re.find_iter(&txt).map(|m| m.as_str()).map(|m| { // get all chunks regardless tag or untag
+    let chunks:Vec<Chunk> = reg.find_iter(&txt).map(|m| m.as_str()).map(|m| { // get all chunks regardless tag or untag
         let contains_tag = tags_reg.find(m); // inside each chunk check if it contains tag or not
         if let Some(tag) = contains_tag { // contain tag
-            println!("{:?}", tag);
-            Chunk::Untagged(String::from("tagged"))
+            // get color name and other info and add in struct
+            let mut infos = tags_part_reg.find_iter(tag.as_str());
+            let tag_name = infos.next().unwrap().as_str().replace(&['<', '>'], "");
+            let text = infos.next().unwrap().as_str().to_string();
+            Chunk::Tagged(Tag{
+                tag_name: tag_name,
+                text: text,
+                start: 3, // TODO; numbers are test for now!!!
+                end: 5
+            })
         } else { // if its a text only
             Chunk::Untagged(m.to_string())
         }
-    });
-    println!("{:?}", chunks.collect::<Vec<_>>());
+    }).collect();
+    println!("{:?}", chunks)
 }
 
 fn draw_ascii() {
     let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
-    for _line in ascii.split("\n"){
-        print_ascii_line(String::from("<yellow>Hii</yellow> Whatsup! <green>I am fine</green> <red>what about you</red>"));
-    }
+    print_ascii_line(String::from("<yellow>Hii</yellow> Whatsup! <green>I am fine</green> <red>what about you</red>"));
+    // for _line in ascii.split("\n"){
+    // }
 }
 
 fn block_clr_print() {
