@@ -18,9 +18,9 @@ struct Cpu {
 }
 
  struct Resolution {
-        width: u32,
-        height: u32,
-        refresh_rate: f32
+    width: u32,
+    height: u32,
+    refresh_rate: f32
 }
 
 fn main() {
@@ -143,31 +143,34 @@ fn str_to_color(color: &str, text: &str) -> ColoredString {
     }
 }
 
-fn print_clred_txt(txt: String) {
+fn print_ascii_line(txt: String) {
     let re = Regex::new(r"</*[a-z]*>").unwrap();
-    // println!("{:?}", re.find_iter(txt).map(|m| m.as_str()).collect::<Vec<_>>());
+
+    let mut tag_pairs:Vec<(Match, Match)> = Vec::new();
+    let mut reg_res = re.find_iter(&txt);
+
     let mut skip = false;
-    let mut vecs:Vec<(Match, Match)> = Vec::new();
-    let mut reg = re.find_iter(&txt);
     for (idx, m) in re.find_iter(&txt).enumerate() {
+        // skipping the closing tag as we want both in single tuple inside a vector
         if skip {
             skip = false;
             continue;
         }
-        vecs.push((m, reg.nth(idx+1).unwrap()));
+        tag_pairs.push((m, reg_res.nth(idx+1).unwrap()));
         skip = true;
     }
     
-    if vecs.len() == 0{
+    if tag_pairs.len() == 0 {
         println!("{txt}");
     } else {
-        let start_idx:usize = vecs[0].0.start();
+        let start_idx = tag_pairs[0].0.start();
         let text_before_color = &txt[..start_idx];
         print!("{text_before_color}");
-        for txt_part in vecs {
+
+        for txt_part in tag_pairs {
             let color_str = txt_part.0.as_str().replace(&['<', '>'], "");
             print!("{}", str_to_color(&color_str, &txt[txt_part.0.end()..txt_part.1.start()]));
-            std::io::stdout().flush().uwrap();
+            std::io::stdout().flush().unwrap();
             println!("");
         }
     }
@@ -175,8 +178,9 @@ fn print_clred_txt(txt: String) {
 
 fn draw_ascii() {
     let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
-    for line in ascii.split("\n"){
-        print_clred_txt(line.to_string());
+    for _line in ascii.split("\n"){
+        print_ascii_line(line.to_string());
+        // print_ascii_line(String::from("<yellow>Hii</yellow> Whatsup! <green>I am fine</green> <red>what about you</red>"));
     }
 }
 
@@ -190,7 +194,7 @@ fn block_clr_print() {
     cprint!("<bg:blue>   </>");
     cprint!("<bg:magenta>   </>");
     cprint!("<bg:cyan>   </>");
-    std::io::stdout().flush().uwrap();
+    std::io::stdout().flush().unwrap();
 
     cprintln!("<bg:bright-black>   </>");
 
@@ -201,7 +205,7 @@ fn block_clr_print() {
     cprint!("<bg:bright-blue>   </>");
     cprint!("<bg:bright-magenta>   </>");
     cprint!("<bg:rgb(122,255,255)>   </>");
-    std:io::stdout().flush().unwrap();
+    std::io::stdout().flush().unwrap();
 
     cprintln!("<bg:rgb(211,211,211)>   </>");
 }
@@ -211,7 +215,7 @@ fn cpu_print(cpus: Vec<Cpu>) {
     for cpu in cpus {
         cprint!("{} ({}) @ {:.1}GHz", cpu.brand, cpu.mul, cpu.frequency)
     }
-    std::io::stdout().flush().uwrap();
+    std::io::stdout().flush().unwrap();
     cprintln!("");
 }
 
