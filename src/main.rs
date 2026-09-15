@@ -6,10 +6,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::process::{ Command, Stdio };
 use std::str;
 use std::io::Write;
-use regex::{Regex, Match};
+use regex::Regex;
 use color_print::{ cprintln, cprint };
 use std::fs;
-use colored::{Colorize, ColoredString};
+use colored::Colorize;
 
 struct Cpu {
     brand: String,
@@ -132,17 +132,6 @@ fn main() {
     draw_ascii()
 }
 
-fn str_to_color(color: &str, text: &str) -> ColoredString {
-    match color {
-        "yellow" => text.yellow(),
-        "orange" => text.truecolor(255,165,0),
-        "red" => text.red(),
-        "blue" => text.blue(),
-        "green" => text.green(),
-        _ => text.into()
-    }
-}
-
 fn print_tagged_text(tag_name: String, text: String) { // prints using print macro, need to flush outside
     let tagged_str = match tag_name.as_str() {
         "red" => text.red(),
@@ -160,8 +149,6 @@ fn print_ascii_line(txt: String) {
     struct Tag {
         tag_name: String,
         text: String,
-        start: usize,
-        end: usize
     }
     #[derive(Debug)]
     enum Chunk {
@@ -169,9 +156,10 @@ fn print_ascii_line(txt: String) {
         Untagged(String)
     }
 
-    let reg = Regex::new(r"(<[a-z]+>[a-zA-Z0-9! ]+</[a-z]+>)|[a-zA-Z0-9! ]+").unwrap(); // for dividing into chunks
-    let tags_reg = Regex::new(r"<[a-z]+>[a-zA-Z0-9! ]+</[a-z]+>").unwrap(); // for identifying whether we have tags or not
-    let tags_part_reg = Regex::new(r"<[a-z]+>|[a-zA-Z0-9! ]+").unwrap();
+    let general_text_reg = r"[a-zA-Z0-9!~_+\-|/\\.() ]+";
+    let reg = Regex::new(format!(r"(<[a-z]+>{general_text_reg}</[a-z]+>)|{general_text_reg}").as_str()).unwrap(); // for dividing into chunks
+    let tags_reg = Regex::new(format!(r"<[a-z]+>{general_text_reg}</[a-z]+>").as_str()).unwrap(); // for identifying whether we have tags or not
+    let tags_part_reg = Regex::new(format!(r"<[a-z]+>|{general_text_reg}").as_str()).unwrap();
  
     let chunks:Vec<Chunk> = reg.find_iter(&txt).map(|m| m.as_str()).map(|m| { // get all chunks regardless tag or untag
         let contains_tag = tags_reg.find(m); // inside each chunk check if it contains tag or not
@@ -182,9 +170,7 @@ fn print_ascii_line(txt: String) {
             let text = infos.next().unwrap().as_str().to_string();
             Chunk::Tagged(Tag{
                 tag_name: tag_name,
-                text: text,
-                start: 3, // TODO; numbers are test for now!!!
-                end: 5
+                text: text
             })
         } else { // if its a text only
             Chunk::Untagged(m.to_string())
@@ -194,17 +180,17 @@ fn print_ascii_line(txt: String) {
     for chunk in chunks {
         match chunk {
             Chunk::Untagged(text) => print!("{}", text),
-            Chunk::Tagged(Tag{tag_name, text, start, end}) => print_tagged_text(tag_name, text)
+            Chunk::Tagged(Tag{tag_name, text}) => print_tagged_text(tag_name, text)
         }
     };
-    println!("")
+    println!("");
 }
 
 fn draw_ascii() {
     let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
-    print_ascii_line(String::from("<yellow>Hii</yellow> Whatsup! <green>I am fine</green> <red>what about you</red>"));
-    // for _line in ascii.split("\n"){
-    // }
+    for line in ascii.split("\n"){
+        print_ascii_line(line.to_string())
+    }
 }
 
 fn block_clr_print() {
