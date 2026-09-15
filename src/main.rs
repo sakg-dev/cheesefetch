@@ -12,9 +12,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // };
 use std::process::{ Command, Stdio };
 use std::str;
-// use regex::Regex; // TODO: use scary regex pls instead of split and other tricks
+use regex::{Regex, Match}; // TODO: use scary regex pls instead of split and other tricks
 use color_print::{ cprintln, cprint };
 use std::fs;
+use colored::{Colorize, ColoredString};
 
 #[derive(Debug)] 
 struct Cpu {
@@ -146,24 +147,54 @@ fn main() {
     draw_ascii()
 }
 
+fn str_to_color(color: &str, text: &str) -> ColoredString {
+    match color {
+        "yellow" => text.yellow(),
+        "red" => text.red(),
+        "blue" => text.blue(),
+        "green" => text.green(),
+        _ => text.into()
+    }
+}
+
+fn print_clred_txt(txt: String) {
+    let re = Regex::new(r"</*[a-z]*>").unwrap();
+    // println!("{:?}", re.find_iter(txt).map(|m| m.as_str()).collect::<Vec<_>>());
+    let mut skip = false;
+    let mut vecs:Vec<(Match, Match)> = Vec::new();
+    let mut reg = re.find_iter(&txt);
+    for (idx, m) in re.find_iter(&txt).enumerate() {
+        if skip {
+            skip = false;
+            continue;
+        }
+        vecs.push((m, reg.nth(idx+1).unwrap()));
+        skip = true;
+    }
+    
+    if vecs.len() == 0{
+        println!("{txt}");
+    } else {
+        let start_idx:usize = vecs[0].0.start();
+        let text_before_color = &txt[..start_idx];
+        print!("{text_before_color}");
+        for txt_part in vecs {
+            let color_str = txt_part.0.as_str().replace(&['<', '>'], "");
+            print!("{}", str_to_color(&color_str, &txt[txt_part.0.end()..txt_part.1.start()]));
+            println!("");
+        }
+    }
+}
+
 fn draw_ascii() {
     let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
-    // println!("{:?}", asci);
-    for _line in ascii.split("\n"){
-        // let a = "<yellow>hey</>";
-        // cprintln!("{}", cformat!("{a}"));
-        // cprintln!("{}", String::from(a));
-        // cprintln!("{line}"); 
-        // TODO: can't cprint a dynamic string as this lib supports compile time str only hence doing that
+    for line in ascii.split("\n"){
+        print_clred_txt(line.to_string());
     }
 
-    // println!("{:?}", ascii.split("\n").collect::<Vec<&str>>());
-    let lines = ["                            __+", "                  <yellow>__+~~~~~~~    ~~~~~~+__</>", "            __+~~~                       ~~~~~~+_", "       _+~~~                       _-----------------+", "   +~  _------------------------~+                   |", "+~~~~+                                               |", "|                                                    |", "|                                                    |", "|                                                    |", "|                                                    |", "|                                                    |", "|                                                    |", "|                                    _--------------+", "|         _-----------------------+/", "+------+/", ""];
-    for line in lines{
-        cprintln!("{line}");
-    }
-    let txt = "<yellow>Hii</>";
-    cprintln!("{}", txt);
+    // println!("\x1b[0;31mSO\x1b[0m");
+    // println!("{}", "Hii bruh".blue());
+    // println!("{}", "Hii bruh".truecolor(0, 255,255));
 }
 
 fn block_clr_print() {
