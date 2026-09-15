@@ -1,15 +1,25 @@
-                            __+
-                  <yellow>__+~~~~~~~    ~~~~~~+__</yellow>
-            __+~~~                       ~~~~~~+_
-       _+~~~                       _-----------------+
-   +~  _------------------------~+                   |
-+~~~~+                                               |
-|                                                    |
-|                                                    |
-|                                                    |
-|                                                    |
-|                                                    |
-|                                                    |
-|                                    _--------------+
-|         _-----------------------+/
-+------+/
+                  <yellow>__+~~~~~~~~~~~~~~+__</yellow>
+             <yellow>_+~~~</yellow>                    <yellow>~~~+_</yellow>
+          <yellow>_+~</yellow>                              <yellow>~+_</yellow>
+        <yellow>_/</yellow>                                    <yellow>\_</yellow>
+       <yellow>/</yellow>                                        <yellow>\</yellow>
+      <yellow>/</yellow>       <orange>.--------.</orange>                         <yellow>\</yellow>
+     <yellow>|</yellow>       <orange>/          \</orange>       <orange>.--------.</orange>         <yellow>|</yellow>
+     <yellow>|</yellow>      <orange>|            |</orange>     <orange>/          \</orange>        <yellow>|</yellow>
+     <yellow>|</yellow>       <orange>\__________/</orange>     <orange>|            |</orange>       <yellow>|</yellow>
+     <yellow>|</yellow>                        <orange>\__________/</orange>        <yellow>|</yellow>
+     <yellow>|</yellow>                                                  <yellow>|</yellow>
+     <yellow>|</yellow>       <orange>.-----.</orange>                                  <yellow>|</yellow>
+     <yellow>|</yellow>      <orange>/       \</orange>          <orange>.--------.</orange>              <yellow>|</yellow>
+     <yellow>|</yellow>     <orange>|         |</orange>        <orange>/          \</orange>             <yellow>|</yellow>
+     <yellow>|</yellow>      <orange>\_______/</orange>        <orange>|            |</orange>            <yellow>|</yellow>
+     <yellow>|</yellow>                         <orange>\__________/</orange>             <yellow>|</yellow>
+     <yellow>|</yellow>                                                  <yellow>|</yellow>
+     <yellow>|</yellow>                 <orange>.----------.</orange>                    <yellow>|</yellow>
+     <yellow>|</yellow>                <orange>/            \</orange>                   <yellow>|</yellow>
+     <yellow>|</yellow>               <orange>|              |</orange>                  <yellow>|</yellow>
+     <yellow>|</yellow>                <orange>\____________/</orange>                   <yellow>|</yellow>
+      <yellow>\</yellow>                                                  <yellow>|</yellow>
+       <yellow>\________________________________________________</yellow><yellow>/</yellow>
+        <yellow>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</yellow>
+             <yellow>~~~~~~~</yellow>  <yellow>~~~~~~~~</yellow>  <yellow>~~~~~~~</yellow>

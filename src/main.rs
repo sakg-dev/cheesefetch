@@ -1,33 +1,33 @@
-// IDFK how to do things efficiently in an efficient lang
-
 use sysinfo::{
     System,
     Motherboard,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
-// use display_info::DisplayInfo;
-// use winit::{
-//    event_loop::{EventLoop},
-//    window::Window,
-// };
 use std::process::{ Command, Stdio };
 use std::str;
-use regex::{Regex, Match}; // TODO: use scary regex pls instead of split and other tricks
+use std::io::Write;
+use regex::{Regex, Match};
 use color_print::{ cprintln, cprint };
 use std::fs;
 use colored::{Colorize, ColoredString};
 
-#[derive(Debug)] 
 struct Cpu {
     brand: String,
     mul: u32,
     frequency: f32
 }
 
+ struct Resolution {
+        width: u32,
+        height: u32,
+        refresh_rate: f32
+}
+
 fn main() {
     let mut sys = System::new_all();
     sys.refresh_all();
 
+    // ---INFOs---
     let os = format!("{} {} {}", System::name().unwrap(), System::os_version().unwrap(), System::cpu_arch());
     let host = System::host_name().unwrap();
     let kernel = System::kernel_long_version();
@@ -47,7 +47,6 @@ fn main() {
     let mut cpus: Vec<Cpu> = Vec::new();
     for cpu in sys.cpus() {
         if cpus.iter().any(|c| c.brand.as_str() == cpu.brand()) {
-            // println!("Found duplicate");
             let idx = cpus.iter().position(|c| c.brand.as_str() == cpu.brand()).unwrap();
             cpus[idx].mul += 1;
             let current_freq = cpu.frequency() as f32 / 1000.0;
@@ -66,16 +65,6 @@ fn main() {
 
     // TODO: IDK how to get packages, ig i will have to identify the package manager and do manually??
 
-    // let mut event_loop = EventLoop::new();
-    // let window = Window::new(&event_loop).unwrap();
-    // window.current_monitor();
-    // nothing working perfectly hence running cmd to get as done in freshfetch
-    #[derive(Debug)]
-    struct Resolution {
-        width: u32,
-        height: u32,
-        refresh_rate: f32
-    }
     let resolution = if cfg!(target_os = "linux") {
         let cmd = Command::new("xrandr")
             .stdout(Stdio::piped())
@@ -89,7 +78,6 @@ fn main() {
             .unwrap();
         let output = grep.wait_with_output().unwrap();
         let result = str::from_utf8(&output.stdout).unwrap();
-        // println!("{:?}", result.trim().split(" ").collect::<Vec<_>>())
         let outputs =  result.trim().split(" ").collect::<Vec<_>>().iter().filter(|&s| s != &"").cloned().collect::<Vec<_>>();
         let display_size:Vec<u32> = outputs[0].split("x").collect::<Vec<_>>().iter().map(|&s| s.parse::<u32>().unwrap()).collect();
         let refresh_rate = outputs[1].split("*").collect::<Vec<_>>()[0].parse::<f32>().unwrap();
@@ -124,10 +112,8 @@ fn main() {
     let parent_process = system.process(parent_pid).unwrap();
     let shell = parent_process.name().to_str().unwrap();
 
-    // -------------------
 
-    // cprintln!("Hii <c>Hii</>");
-    // cprintln!("<bold><bold> A <bold,blue> B </> C </></>");
+    // ---------PRINTING INFOS, BLOCKS AND ASCII----------
     cprintln!("<bold, cyan>{}</>", host);
     cprintln!("{}", "—".repeat(host.len()));
     cprintln!("<bold><cyan>OS</>:</> {}", os);
@@ -140,9 +126,8 @@ fn main() {
     cpu_print(cpus);
     cprintln!("<bold><cyan>GPU</>:</> {}", "undefined");
     cprintln!("<bold><cyan>Memory</>:</> {}MB / {}MB", free_mem, available_mem);
-    block_clr_print();
 
-    // --------------------
+    block_clr_print();
 
     draw_ascii()
 }
@@ -150,6 +135,7 @@ fn main() {
 fn str_to_color(color: &str, text: &str) -> ColoredString {
     match color {
         "yellow" => text.yellow(),
+        "orange" => text.truecolor(255,165,0),
         "red" => text.red(),
         "blue" => text.blue(),
         "green" => text.green(),
@@ -181,6 +167,7 @@ fn print_clred_txt(txt: String) {
         for txt_part in vecs {
             let color_str = txt_part.0.as_str().replace(&['<', '>'], "");
             print!("{}", str_to_color(&color_str, &txt[txt_part.0.end()..txt_part.1.start()]));
+            std::io::stdout().flush().uwrap();
             println!("");
         }
     }
@@ -191,15 +178,11 @@ fn draw_ascii() {
     for line in ascii.split("\n"){
         print_clred_txt(line.to_string());
     }
-
-    // println!("\x1b[0;31mSO\x1b[0m");
-    // println!("{}", "Hii bruh".blue());
-    // println!("{}", "Hii bruh".truecolor(0, 255,255));
 }
 
 fn block_clr_print() {
-    // TODO: flugh thingy
     println!("");
+
     cprint!("<bg:black>   </>");
     cprint!("<bg:red>   </>");
     cprint!("<bg:green>   </>");
@@ -207,7 +190,10 @@ fn block_clr_print() {
     cprint!("<bg:blue>   </>");
     cprint!("<bg:magenta>   </>");
     cprint!("<bg:cyan>   </>");
+    std::io::stdout().flush().uwrap();
+
     cprintln!("<bg:bright-black>   </>");
+
     cprint!("<bg:rgb(79,79,79)>   </>");
     cprint!("<bg:bright-red>   </>");
     cprint!("<bg:bright-green>   </>");
@@ -215,6 +201,8 @@ fn block_clr_print() {
     cprint!("<bg:bright-blue>   </>");
     cprint!("<bg:bright-magenta>   </>");
     cprint!("<bg:rgb(122,255,255)>   </>");
+    std:io::stdout().flush().unwrap();
+
     cprintln!("<bg:rgb(211,211,211)>   </>");
 }
 
@@ -223,8 +211,8 @@ fn cpu_print(cpus: Vec<Cpu>) {
     for cpu in cpus {
         cprint!("{} ({}) @ {:.1}GHz", cpu.brand, cpu.mul, cpu.frequency)
     }
+    std::io::stdout().flush().uwrap();
     cprintln!("");
-    // TODO: DO the flush thingy
 }
 
 fn sec_to_readeable_time(secs: u64) -> String {
