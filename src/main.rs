@@ -143,6 +143,18 @@ fn str_to_color(color: &str, text: &str) -> ColoredString {
     }
 }
 
+fn print_tagged_text(tag_name: String, text: String) { // prints using print macro, need to flush outside
+    let tagged_str = match tag_name.as_str() {
+        "red" => text.red(),
+        "green" => text.green(),
+        "blue" => text.blue(),
+        "yellow" => text.yellow(),
+        "orange" => text.truecolor(255, 165, 0),
+        _ => text.into()
+    };
+    print!("{}", tagged_str);
+}
+
 fn print_ascii_line(txt: String) {
     #[derive(Debug)]
     struct Tag {
@@ -157,9 +169,9 @@ fn print_ascii_line(txt: String) {
         Untagged(String)
     }
 
-    let reg = Regex::new(r"(<[a-z]+>[a-zA-Z0-9 ]+</[a-z]+>)|[a-zA-Z0-9 ]+").unwrap(); // for dividing into chunks
-    let tags_reg = Regex::new(r"<[a-z]+>[a-zA-Z0-9 ]+</[a-z]+>").unwrap(); // for identifying whether we have tags or not
-    let tags_part_reg = Regex::new(r"<[a-z]+>|[a-zA-Z0-9 ]+").unwrap();
+    let reg = Regex::new(r"(<[a-z]+>[a-zA-Z0-9! ]+</[a-z]+>)|[a-zA-Z0-9! ]+").unwrap(); // for dividing into chunks
+    let tags_reg = Regex::new(r"<[a-z]+>[a-zA-Z0-9! ]+</[a-z]+>").unwrap(); // for identifying whether we have tags or not
+    let tags_part_reg = Regex::new(r"<[a-z]+>|[a-zA-Z0-9! ]+").unwrap();
  
     let chunks:Vec<Chunk> = reg.find_iter(&txt).map(|m| m.as_str()).map(|m| { // get all chunks regardless tag or untag
         let contains_tag = tags_reg.find(m); // inside each chunk check if it contains tag or not
@@ -178,7 +190,14 @@ fn print_ascii_line(txt: String) {
             Chunk::Untagged(m.to_string())
         }
     }).collect();
-    println!("{:?}", chunks)
+
+    for chunk in chunks {
+        match chunk {
+            Chunk::Untagged(text) => print!("{}", text),
+            Chunk::Tagged(Tag{tag_name, text, start, end}) => print_tagged_text(tag_name, text)
+        }
+    };
+    println!("")
 }
 
 fn draw_ascii() {
