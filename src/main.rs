@@ -10,7 +10,6 @@ use regex::Regex;
 use color_print::{ cprintln, cprint };
 use std::fs;
 use colored::Colorize;
-use terminal_size::{Width, Height, terminal_size};
 
 struct Cpu {
     brand: String,
@@ -114,28 +113,18 @@ fn main() {
     let shell = parent_process.name().to_str().unwrap();
 
 
-    display_everything(host, os, kernel, uptime, "undefined", shell, resolution, wm, cpus, "undefined", free_mem, available_mem)
-}
-
-fn display_everything(host:String, os:String, kernel:String, uptime:String, packages:&str, shell:&str, resolution:Resolution, wm:&str, cpus:Vec<Cpu>, gpu:&str, free_mem:u64, available_mem:u64) {
-    // idea: get the width and height of the current terminal, according to that plot, either in
-    // column or row, keep infos and clr boxes one side, asci on other..
-
-    let tsize = terminal_size();
-    println!("{:?}", tsize);
-
-    // System Infos
+    // ---------PRINTING INFOS, BLOCKS AND ASCII----------
     cprintln!("<bold, cyan>{}</>", host);
     cprintln!("{}", "—".repeat(host.len()));
     cprintln!("<bold><cyan>OS</>:</> {}", os);
     cprintln!("<bold><cyan>Kernel</>:</> {}", kernel);
     cprintln!("<bold><cyan>Uptime</>:</> {}", uptime);
-    cprintln!("<bold><cyan>Packages</>:</> {}", packages);
+    cprintln!("<bold><cyan>Packages</>:</> undefined");
     cprintln!("<bold><cyan>Shell</>:</> {}", shell);
     cprintln!("<bold><cyan>Resolution</>:</> {}x{} {}Hz", resolution.width, resolution.height, resolution.refresh_rate);
     cprintln!("<bold><cyan>WM</>:</> {}", wm);
     cpu_print(cpus);
-    cprintln!("<bold><cyan>GPU</>:</> {}", gpu);
+    cprintln!("<bold><cyan>GPU</>:</> {}", "undefined");
     cprintln!("<bold><cyan>Memory</>:</> {}MB / {}MB", free_mem, available_mem);
 
     block_clr_print();
