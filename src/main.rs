@@ -120,27 +120,34 @@ fn main() {
 fn display_everything(host:String, os:String, kernel:String, uptime:String, packages:&str, shell:&str, resolution:Resolution, wm:&str, cpus:Vec<Cpu>, gpu:&str, free_mem:u64, available_mem:u64) {
     // idea: get the width and height of the current terminal, according to that plot, either in
     // column or row, keep infos and clr boxes one side, asci on other..
+    let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
+    let ascii_str = ascii.as_str();
+    let (ascii_w, _ascii_h) = get_ascii_size(ascii_str);
+    const _GAP:u32 = 5;
 
     let tsize = terminal_size();
-    println!("{:?}", tsize);
-
-    // System Infos
-    cprintln!("<bold, cyan>{}</>", host);
-    cprintln!("{}", "—".repeat(host.len()));
-    cprintln!("<bold><cyan>OS</>:</> {}", os);
-    cprintln!("<bold><cyan>Kernel</>:</> {}", kernel);
-    cprintln!("<bold><cyan>Uptime</>:</> {}", uptime);
-    cprintln!("<bold><cyan>Packages</>:</> {}", packages);
-    cprintln!("<bold><cyan>Shell</>:</> {}", shell);
-    cprintln!("<bold><cyan>Resolution</>:</> {}x{} {}Hz", resolution.width, resolution.height, resolution.refresh_rate);
-    cprintln!("<bold><cyan>WM</>:</> {}", wm);
-    cpu_print(cpus);
-    cprintln!("<bold><cyan>GPU</>:</> {}", gpu);
-    cprintln!("<bold><cyan>Memory</>:</> {}MB / {}MB", free_mem, available_mem);
-
-    block_clr_print();
-
-    draw_ascii()
+    if let Some((Width(w), Height(_h))) = tsize {
+        // println!("{}:{}", w, h);
+        if ascii_w*2 > w.into() { // if ascii is more then half of terminal -- vertical
+            // System Infos
+            cprintln!("<bold, cyan>{}</>", host);
+            cprintln!("{}", "—".repeat(host.len()));
+            cprintln!("<bold><cyan>OS</>:</> {}", os);
+            cprintln!("<bold><cyan>Kernel</>:</> {}", kernel);
+            cprintln!("<bold><cyan>Uptime</>:</> {}", uptime);
+            cprintln!("<bold><cyan>Packages</>:</> {}", packages);
+            cprintln!("<bold><cyan>Shell</>:</> {}", shell);
+            cprintln!("<bold><cyan>Resolution</>:</> {}x{} {}Hz", resolution.width, resolution.height, resolution.refresh_rate);
+            cprintln!("<bold><cyan>WM</>:</> {}", wm);
+            cpu_print(cpus);
+            cprintln!("<bold><cyan>GPU</>:</> {}", gpu);
+            cprintln!("<bold><cyan>Memory</>:</> {}MB / {}MB", free_mem, available_mem);  
+            block_clr_print();
+        } else { // -- horizontal
+            
+        }
+    }
+    draw_ascii(ascii_str)
 }
 
 fn print_tagged_text(tag_name: String, text: String) { // prints using print macro, need to flush outside
@@ -197,8 +204,22 @@ fn print_ascii_line(txt: String) {
     println!("");
 }
 
-fn draw_ascii() {
-    let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
+fn get_ascii_size(ascii:&str) -> (u32, u32){
+    // return height and for width, returns of largest
+    let ascii_iter = ascii.split("\n");
+    let height:u32 = ascii_iter.clone().count() as u32;
+    let re = Regex::new(r"</*[a-z]*>").unwrap();
+    let mut width:u32 = 0;
+    for line in ascii_iter{
+        let len = re.replace_all(line, "").len();
+        if width < len.try_into().unwrap() {
+            width = len as u32;
+        }
+    }
+    (width, height)
+}
+
+fn draw_ascii(ascii:&str) {
     for line in ascii.split("\n"){
         print_ascii_line(line.to_string())
     }
