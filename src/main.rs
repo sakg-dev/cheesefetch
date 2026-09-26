@@ -27,7 +27,7 @@ struct Cpu {
 
 #[derive(Debug)]
 struct Info {
-    name: String,
+    name: Option<String>,
     value: String
 }
 
@@ -155,16 +155,17 @@ fn main() {
     let mem = get_mem(&sys);
 
     let infos: Vec<Info> = vec![
-        Info{ name: "host".to_string(), value: host },
-        Info{ name: "kernel".to_string(), value: kernel },
-        Info{ name: "uptime".to_string(), value: uptime },
-        Info{ name: "packages".to_string(), value: "undefined".to_string() },
-        Info{ name: "shell".to_string(), value: shell },
-        Info{ name: "resolution".to_string(), value: resolution },
-        Info{ name: "wm".to_string(), value: wm },
-        Info{ name: "cpus".to_string(), value: cpus },
-        Info{ name: "gpu".to_string(), value: "undefined".to_string() },
-        Info{ name: "memory".to_string(), value: mem },
+        Info{ name: None, value: host.clone() },
+        Info{ name: None, value: "-".repeat(host.len()) },
+        Info{ name: Some("kernel".to_string()), value: kernel },
+        Info{ name: Some("uptime".to_string()), value: uptime },
+        Info{ name: Some("packages".to_string()), value: "undefined".to_string() },
+        Info{ name: Some("shell".to_string()), value: shell },
+        Info{ name: Some("resolution".to_string()), value: resolution },
+        Info{ name: Some("wm".to_string()), value: wm },
+        Info{ name: Some("cpus".to_string()), value: cpus },
+        Info{ name: Some("gpu".to_string()), value: "undefined".to_string() },
+        Info{ name: Some("memory".to_string()), value: mem },
     ];
    
     display_everything(infos)
@@ -176,7 +177,7 @@ fn display_everything(infos:Vec<Info>) {
     let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
     let ascii_str = ascii.as_str();
     let (ascii_w, _ascii_h) = get_ascii_size(ascii_str);
-    const GAP:u32 = 5;
+    const GAP:u32 = 8;
 
     let tsize = terminal_size();
     let mut infos_lines_taken:u32 = 0;
@@ -185,15 +186,8 @@ fn display_everything(infos:Vec<Info>) {
         // println!("{}:{}", w, h);
         if ascii_w*2 > w.into() { // if ascii is more then half of terminal -- vertical
         } else { // -- horizontal
-            for info in infos.iter() {
-                if info.name == "host" {
-                    cprintln!("<bold, cyan>{}</>", info.value);
-                    cprintln!("{}", "-".repeat(info.value.len()));
-                    infos_lines_taken += 2;
-                } else {
-                    cprintln!("<bold><cyan>{}</>:</> {}", info.name , info.value);
-                    infos_lines_taken += 1;
-                }
+            for _ in infos.iter() {
+                infos_lines_taken += 1;
             }
 
 
@@ -218,12 +212,10 @@ fn display_everything(infos:Vec<Info>) {
                             let info = &infos[info_idx];
                             let ascii_space = ascii_w - get_ascii_size(line).0 + GAP;
                             line_str.push_str(" ".repeat(ascii_space.try_into().unwrap()).as_str());
-                            if info.name == "host" {
-                                line_str.push_str(format!("<cyan>{}</cyan>", info.value).as_str());
-                                line_str.push_str(format!("{}", "-".repeat(info.value.len())).as_str());
+                            if let Some(name) = &info.name {
+                                line_str.push_str(format!("<cyan>{}</cyan>: {}", name , info.value).as_str());
                             } else {
-                                cprintln!("<bold><cyan>{}</>:</> {}", info.name , info.value);
-                                infos_lines_taken += 1;
+                                line_str.push_str(format!("<cyan>{}</cyan>", info.value).as_str());
                             }
                         }
                     }
@@ -240,6 +232,7 @@ fn print_tagged_text(tag_name: String, text: String) { // prints using print mac
         "green" => text.green(),
         "blue" => text.blue(),
         "yellow" => text.yellow(),
+        "cyan" => text.cyan(),
         "orange" => text.truecolor(255, 165, 0),
         _ => text.into()
     };
@@ -258,7 +251,7 @@ fn print_ascii_line(txt: String) {
         Untagged(String)
     }
 
-    let general_text_reg = r"[a-zA-Z0-9!~_+\-|/\\.() ]+";
+    let general_text_reg = r"[a-zA-Z0-9!~_+\-|/\\.() :]+";
     let reg = Regex::new(format!(r"(<[a-z]+>{general_text_reg}</[a-z]+>)|{general_text_reg}").as_str()).unwrap(); // for dividing into chunks
     let tags_reg = Regex::new(format!(r"<[a-z]+>{general_text_reg}</[a-z]+>").as_str()).unwrap(); // for identifying whether we have tags or not
     let tags_part_reg = Regex::new(format!(r"<[a-z]+>|{general_text_reg}").as_str()).unwrap();
