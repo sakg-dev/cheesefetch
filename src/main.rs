@@ -4,30 +4,34 @@ use sysinfo::{
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::process::{ Command, Stdio };
+use std::io::Write;
+use std::io;
 use std::str;
-use regex::Regex;
 use std::fs;
+use regex::Regex;
 use colored::Colorize;
 use terminal_size::{Width, Height, terminal_size};
 
-#[derive(Debug)]
 struct Cpu {
     brand: String,
     mul: u32,
     frequency: f32
 }
 
- struct Resolution {
+struct Resolution {
     width: u32,
     height: u32,
     refresh_rate: f32
 }
 
-#[derive(Debug)]
 struct Info {
     name: Option<String>,
     value: String
 }
+
+const GENERAL_TAG_REG:&str = r"[a-z:-]+";
+
+// TODO: many unused vars and functions (search UNUSED to see)
 
 fn main() {
     let mut sys = System::new_all();
@@ -55,7 +59,7 @@ fn main() {
         let free_mem = sys.free_memory() / (1024*1024) as u64;
         format!("{}MB / {}MB", free_mem, available_mem)
     }
-    fn _get_board() -> String {
+    fn _get_board() -> String { // UNUSED
         let mboard = Motherboard::new().unwrap();
         let board_name = mboard.name().unwrap();
         let board_vendor = mboard.vendor_name().unwrap();
@@ -112,12 +116,12 @@ fn main() {
                 refresh_rate: refresh_rate
             }
         } else {
-            // TODO: Write Command for Windows and MacOs, for now returning dummy result
+            // FUTURE-TODO: Write Command for Windows and MacOs, for now returning dummy result
             // for windows this cmd works(used ai to get this cmd): Get-CimInstance Win32_VideoController | ForEach-Object { "$($_.VideoModeDescription), $($_.CurrentRefreshRate)" }
             Resolution {
                 width: 1600,
                 height: 900,
-                refresh_rate: 120.0 // high to differentiate from og val
+                refresh_rate: 120.0 
             }
         };
 
@@ -142,7 +146,7 @@ fn main() {
 
     // ---INFOs---
     let host = get_host();
-    let _os = get_os(); //TODO: unused
+    let _os = get_os(); // UNUSED
     let kernel = get_kernel();
     let uptime = get_uptime();
     // TODO: IDK how to get packages, ig i will have to identify the package manager and do manually??
@@ -173,38 +177,32 @@ fn main() {
 }
 
 fn display_everything(infos:Vec<Info>) {
-    // idea: get the width and height of the current terminal, according to that plot, either in
-    // column or row, keep infos and clr boxes one side, asci on other..
     let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
     let ascii_str = ascii.as_str();
-    let (ascii_w, _ascii_h) = get_ascii_size(ascii_str);
+    let (ascii_w, ascii_h) = get_ascii_size(ascii_str);
+    let (infos_w, infos_h) = get_infos_size(&infos);
+
     const GAP:u32 = 8;
 
     let tsize = terminal_size();
-    let mut infos_lines_taken:u32 = 0;
     
-    if let Some((Width(w), Height(_h))) = tsize {
-        if ascii_w*2 > w.into() { // if ascii is more then half of terminal -- vertical
-        } else { // -- horizontal
-            infos_lines_taken += infos.len() as u32;
-
-            let ascii_str_splitted = ascii_str.split("\n");
-            let ascii_str_lines = ascii_str_splitted.clone().count() as u32;
-            
-            if infos_lines_taken > ascii_str_lines { // TODO: wht if they are equal
-            } else { // infos lines are less than ascii str lines
-                let diff = ascii_str_lines - infos_lines_taken;
+    if let Some((Width(w), Height(_))) = tsize {
+        if (ascii_w + GAP + infos_w) > w.into() {
+            // vertical
+        } else { // horizontal
+            if infos_h > ascii_h {
+            } else { // Infos is <+ ascii so run loop in ascii
+                let diff = ascii_h - infos_h;
                 let infos_start = if diff % 2 == 1 {(diff+1)/2} else {diff/2};
-                // Now start the infos from infos_start, with the gap as GAP.
 
-                for (idx, line) in ascii_str_splitted.enumerate() {
+                for (idx, ascii_line) in ascii_str.split("\n").enumerate() {
                     let idx = idx as u32;
-                    let mut line_str = String::from(line);
+                    let mut line_str = String::from(ascii_line); // ascii + gap + info
                     if idx+1 >= infos_start {
                         let info_idx = ((idx+1) - infos_start) as usize;
-                        if info_idx < infos.len() {
+                        if (info_idx as u32) < infos_h { // if we have info
                             let info = &infos[info_idx];
-                            let ascii_space = ascii_w - get_ascii_size(line).0 + GAP;
+                            let ascii_space = ascii_w - get_ascii_size(ascii_line).0 + GAP;
                             line_str.push_str(" ".repeat(ascii_space.try_into().unwrap()).as_str());
                             if let Some(name) = &info.name {
                                 line_str.push_str(format!("<cyan>{}</cyan>: {}", name , info.value).as_str());
@@ -213,14 +211,14 @@ fn display_everything(infos:Vec<Info>) {
                             }
                         }
                     }
-                    print_coloured_line(line_str);
+                    cprintln(line_str);
                 }
             }
         }
     }
 }
 
-fn print_tagged_text(tag_name: String, text: String) { // prints using print macro, need to flush outside
+fn print_tagged_text(tag_name: String, text: String) {
     let tagged_str = match tag_name.as_str() {
         "red" => text.red(),
         "green" => text.green(),
@@ -250,24 +248,21 @@ fn print_tagged_text(tag_name: String, text: String) { // prints using print mac
     print!("{}", tagged_str);
 }
 
-fn print_coloured_line(txt: String) {
-    #[derive(Debug)]
+fn cprintln(txt: String) {
     struct Tag {
         tag_name: String,
         text: String,
     }
-    #[derive(Debug)]
     enum Chunk {
         Tagged(Tag),
         Untagged(String)
     }
 
-    let general_tag_reg = r"[a-z:-]+";
-    let general_text_reg = r"[a-zA-Z0-9!~_+\-|/\\.() :]+";
+    let general_text_reg:&str = r"[a-zA-Z0-9!~_+\-|/\\.() :]+";
 
-    let reg = Regex::new(format!(r"(<{general_tag_reg}>{general_text_reg}</{general_tag_reg}>)|{general_text_reg}").as_str()).unwrap(); // for dividing into chunks
-    let tags_reg = Regex::new(format!(r"<{general_tag_reg}>{general_text_reg}</{general_tag_reg}>").as_str()).unwrap(); // for identifying whether we have tags or not
-    let tags_part_reg = Regex::new(format!(r"<{general_tag_reg}>|{general_text_reg}").as_str()).unwrap();
+    let reg = Regex::new(format!(r"(<{GENERAL_TAG_REG}>{general_text_reg}</{GENERAL_TAG_REG}>)|{general_text_reg}").as_str()).unwrap(); // for dividing into chunks
+    let tags_reg = Regex::new(format!(r"<{GENERAL_TAG_REG}>{general_text_reg}</{GENERAL_TAG_REG}>").as_str()).unwrap(); // for identifying whether we have tags or not
+    let tags_part_reg = Regex::new(format!(r"<{GENERAL_TAG_REG}>|{general_text_reg}").as_str()).unwrap();
  
     let chunks:Vec<Chunk> = reg.find_iter(&txt).map(|m| m.as_str()).map(|m| { // get all chunks regardless tag or untag
         let contains_tag = tags_reg.find(m); // inside each chunk check if it contains tag or not
@@ -284,13 +279,13 @@ fn print_coloured_line(txt: String) {
             Chunk::Untagged(m.to_string())
         }
     }).collect();
-    // println!("{:?}", chunks);
 
     for chunk in chunks {
         match chunk {
             Chunk::Untagged(text) => print!("{}", text),
             Chunk::Tagged(Tag{tag_name, text}) => print_tagged_text(tag_name, text)
         }
+        io::stdout().flush().unwrap();
     };
     println!("");
 }
@@ -299,12 +294,35 @@ fn get_ascii_size(ascii:&str) -> (u32, u32){
     // return height and for width, returns of largest
     let ascii_iter = ascii.split("\n");
     let height:u32 = ascii_iter.clone().count() as u32;
-    let re = Regex::new(r"</*[a-z]*>").unwrap();
+    let re = Regex::new(format!(r"</*{GENERAL_TAG_REG}>").as_str()).unwrap();
     let mut width:u32 = 0;
     for line in ascii_iter{
         let len = re.replace_all(line, "").len();
         if width < len.try_into().unwrap() {
             width = len as u32;
+        }
+    }
+    (width, height)
+}
+
+fn get_infos_size(infos: &Vec<Info>) -> (u32, u32){
+    let height:u32 = infos.len() as u32;
+    let mut width:u32 = 0;
+    for info in infos {
+        if let Some(name) = &info.name {
+            let mut full_string = String::new();
+            full_string.push_str(name);
+            full_string.push_str(": ");
+            full_string.push_str(&info.value);
+            let full_string_len = full_string.len() as u32;
+            if full_string_len > width {
+                width = full_string_len;
+            }
+        } else {
+            let (w, _) = get_ascii_size(&info.value);
+            if w > width {
+                width = w
+            }
         }
     }
     (width, height)
