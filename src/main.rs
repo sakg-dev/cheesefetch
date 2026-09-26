@@ -12,6 +12,7 @@ use std::fs;
 use colored::Colorize;
 use terminal_size::{Width, Height, terminal_size};
 
+#[derive(Debug)]
 struct Cpu {
     brand: String,
     mul: u32,
@@ -24,130 +25,213 @@ struct Cpu {
     refresh_rate: f32
 }
 
+#[derive(Debug)]
+struct Info {
+    name: String,
+    value: String
+}
+
 fn main() {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    // ---INFOs---
-    let os = format!("{} {} {}", System::name().unwrap(), System::os_version().unwrap(), System::cpu_arch());
-    let host = System::host_name().unwrap();
-    let kernel = System::kernel_long_version();
-
-    let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-    let boot_time = System::boot_time();
-    let uptime = sec_to_readeable_time(current_time - boot_time);
-
-    let available_mem = sys.total_memory() / (1024*1024) as u64;
-    let free_mem = sys.free_memory() / (1024*1024) as u64;
-
-    let mboard = Motherboard::new().unwrap();
-    let board_name = mboard.name().unwrap();
-    let board_vendor = mboard.vendor_name().unwrap();
-    let _board = format!("{} {}", board_vendor, board_name);
-
-    let mut cpus: Vec<Cpu> = Vec::new();
-    for cpu in sys.cpus() {
-        if cpus.iter().any(|c| c.brand.as_str() == cpu.brand()) {
-            let idx = cpus.iter().position(|c| c.brand.as_str() == cpu.brand()).unwrap();
-            cpus[idx].mul += 1;
-            let current_freq = cpu.frequency() as f32 / 1000.0;
-            if cpus[idx].frequency < current_freq {
-                cpus[idx].frequency = current_freq;
+    fn get_os() -> String {
+        let name = System::name().unwrap();
+        let os_version = System::os_version().unwrap();
+        let cpu_arch = System::cpu_arch();
+        format!("{} {} {}", name, os_version, cpu_arch)
+    }
+    fn get_host() -> String {
+        System::host_name().unwrap()
+    }
+    fn get_kernel() -> String {
+        System::kernel_long_version()
+    }
+    fn get_uptime() -> String{
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let boot_time = System::boot_time();
+        sec_to_readeable_time(current_time - boot_time)
+    }
+    fn get_mem(sys:&System) -> String {
+        let available_mem = sys.total_memory() / (1024*1024) as u64;
+        let free_mem = sys.free_memory() / (1024*1024) as u64;
+        format!("{}MB / {}MB", free_mem, available_mem)
+    }
+    fn _get_board() -> String {
+        let mboard = Motherboard::new().unwrap();
+        let board_name = mboard.name().unwrap();
+        let board_vendor = mboard.vendor_name().unwrap();
+        format!("{} {}", board_vendor, board_name)
+    }
+    fn get_cpus(sys:&System) -> String {
+        let mut cpus: Vec<Cpu> = Vec::new();
+        for cpu in sys.cpus() {
+            if cpus.iter().any(|c| c.brand.as_str() == cpu.brand()) {
+                let idx = cpus.iter().position(|c| c.brand.as_str() == cpu.brand()).unwrap();
+                cpus[idx].mul += 1;
+                let current_freq = cpu.frequency() as f32 / 1000.0;
+                if cpus[idx].frequency < current_freq {
+                    cpus[idx].frequency = current_freq;
+                }
+            } else {
+                let new_cpu = Cpu{
+                    brand: cpu.brand().to_string(),
+                    mul: 1,
+                    frequency: cpu.frequency() as f32 / 1000.0
+                };
+                cpus.push(new_cpu);
             }
-        } else {
-            let new_cpu = Cpu{
-                brand: cpu.brand().to_string(),
-                mul: 1,
-                frequency: cpu.frequency() as f32 / 1000.0
-            };
-            cpus.push(new_cpu);
         }
+
+        let mut cpus_str = String::new();
+
+        for cpu in cpus {
+            cpus_str.push_str(format!("{} ({}) @ {:.1}GHz", cpu.brand, cpu.mul, cpu.frequency).as_str());
+        }
+        cpus_str
     }
 
+    fn get_resolution() -> String{
+        let resolution = if cfg!(target_os = "linux") {
+            let cmd = Command::new("xrandr")
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let grep = Command::new("grep")
+                .arg("*")
+                .stdin(Stdio::from(cmd.stdout.unwrap()))
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let output = grep.wait_with_output().unwrap();
+            let result = str::from_utf8(&output.stdout).unwrap();
+            let outputs =  result.trim().split(" ").collect::<Vec<_>>().iter().filter(|&s| s != &"").cloned().collect::<Vec<_>>();
+            let display_size:Vec<u32> = outputs[0].split("x").collect::<Vec<_>>().iter().map(|&s| s.parse::<u32>().unwrap()).collect();
+            let refresh_rate = outputs[1].split("*").collect::<Vec<_>>()[0].parse::<f32>().unwrap();
+            Resolution {
+                width: display_size[0],
+                height: display_size[1],
+                refresh_rate: refresh_rate
+            }
+        } else {
+            // TODO: Write Command for Windows and MacOs, for now returning dummy result
+            // for windows this cmd works(used ai to get this cmd): Get-CimInstance Win32_VideoController | ForEach-Object { "$($_.VideoModeDescription), $($_.CurrentRefreshRate)" }
+            Resolution {
+                width: 1600,
+                height: 900,
+                refresh_rate: 120.0 // high to differentiate from og val
+            }
+        };
+
+        format!("{}x{} {}Hz", resolution.width, resolution.height, resolution.refresh_rate)
+    }
+    fn get_wm() -> String {
+        let mut bind = Command::new("bash");
+        let wm_binary = bind.args(["-c", r###"id=$(xprop -root -notype _NET_SUPPORTING_WM_CHECK) && id=${id##* } && wm=$(xprop -id "$id" -notype -len 100 -f _NET_WM_NAME 8t) && wm=${wm/*WM_NAME = } && wm=${wm/\"} && wm=${wm/\"*} && printf $wm"###]).output().unwrap().stdout;
+        str::from_utf8(&wm_binary).unwrap().to_string() 
+    }
+    fn get_shell() -> String {
+        let system = sysinfo::System::new_with_specifics(
+            sysinfo::RefreshKind::everything().with_processes(
+                sysinfo::ProcessRefreshKind::everything()
+            )
+        );
+        let my_pid = sysinfo::get_current_pid().unwrap();
+        let parent_pid = system.process(my_pid).unwrap().parent().unwrap();
+        let parent_process = system.process(parent_pid).unwrap();
+        parent_process.name().to_str().unwrap().to_string()
+    }
+
+    // ---INFOs---
+    let host = get_host();
+    let _os = get_os(); //TODO: unused
+    let kernel = get_kernel();
+    let uptime = get_uptime();
     // TODO: IDK how to get packages, ig i will have to identify the package manager and do manually??
+    let shell = get_shell();
+    let resolution = get_resolution();
+    let wm = get_wm();
+    let cpus = get_cpus(&sys);
+    let mem = get_mem(&sys);
 
-    let resolution = if cfg!(target_os = "linux") {
-        let cmd = Command::new("xrandr")
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-        let grep = Command::new("grep")
-            .arg("*")
-            .stdin(Stdio::from(cmd.stdout.unwrap()))
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-        let output = grep.wait_with_output().unwrap();
-        let result = str::from_utf8(&output.stdout).unwrap();
-        let outputs =  result.trim().split(" ").collect::<Vec<_>>().iter().filter(|&s| s != &"").cloned().collect::<Vec<_>>();
-        let display_size:Vec<u32> = outputs[0].split("x").collect::<Vec<_>>().iter().map(|&s| s.parse::<u32>().unwrap()).collect();
-        let refresh_rate = outputs[1].split("*").collect::<Vec<_>>()[0].parse::<f32>().unwrap();
-        Resolution {
-            width: display_size[0],
-            height: display_size[1],
-            refresh_rate: refresh_rate
-        }
-    } else {
-        // TODO: Write Command for Windows and MacOs, for now returning dummy result
-        // for windows this cmd works(used ai to get this cmd): Get-CimInstance Win32_VideoController | ForEach-Object { "$($_.VideoModeDescription), $($_.CurrentRefreshRate)" }
-        Resolution {
-            width: 1600,
-            height: 900,
-            refresh_rate: 120.0 // high to differentiate from og val
-        }
-    };
+    let infos: Vec<Info> = vec![
+        Info{ name: "host".to_string(), value: host },
+        Info{ name: "kernel".to_string(), value: kernel },
+        Info{ name: "uptime".to_string(), value: uptime },
+        Info{ name: "packages".to_string(), value: "undefined".to_string() },
+        Info{ name: "shell".to_string(), value: shell },
+        Info{ name: "resolution".to_string(), value: resolution },
+        Info{ name: "wm".to_string(), value: wm },
+        Info{ name: "cpus".to_string(), value: cpus },
+        Info{ name: "gpu".to_string(), value: "undefined".to_string() },
+        Info{ name: "memory".to_string(), value: mem },
+    ];
    
-    // WM
-    let mut bind = Command::new("bash");
-    let wm_binary = bind.args(["-c", r###"id=$(xprop -root -notype _NET_SUPPORTING_WM_CHECK) && id=${id##* } && wm=$(xprop -id "$id" -notype -len 100 -f _NET_WM_NAME 8t) && wm=${wm/*WM_NAME = } && wm=${wm/\"} && wm=${wm/\"*} && printf $wm"###]).output().unwrap().stdout;
-    let wm = str::from_utf8(&wm_binary).unwrap();
-    
-    // Shell
-    let system = sysinfo::System::new_with_specifics(
-        sysinfo::RefreshKind::everything().with_processes(
-            sysinfo::ProcessRefreshKind::everything()
-        )
-    );
-    let my_pid = sysinfo::get_current_pid().unwrap();
-    let parent_pid = system.process(my_pid).unwrap().parent().unwrap();
-    let parent_process = system.process(parent_pid).unwrap();
-    let shell = parent_process.name().to_str().unwrap();
-
-
-    display_everything(host, os, kernel, uptime, "undefined", shell, resolution, wm, cpus, "undefined", free_mem, available_mem)
+    display_everything(infos)
 }
 
-fn display_everything(host:String, os:String, kernel:String, uptime:String, packages:&str, shell:&str, resolution:Resolution, wm:&str, cpus:Vec<Cpu>, gpu:&str, free_mem:u64, available_mem:u64) {
+fn display_everything(infos:Vec<Info>) {
     // idea: get the width and height of the current terminal, according to that plot, either in
     // column or row, keep infos and clr boxes one side, asci on other..
     let ascii = fs::read_to_string("./assets/ascii_arts/simple_cheese.txt").unwrap();
     let ascii_str = ascii.as_str();
     let (ascii_w, _ascii_h) = get_ascii_size(ascii_str);
-    const _GAP:u32 = 5;
+    const GAP:u32 = 5;
 
     let tsize = terminal_size();
+    let mut infos_lines_taken:u32 = 0;
+    
     if let Some((Width(w), Height(_h))) = tsize {
         // println!("{}:{}", w, h);
         if ascii_w*2 > w.into() { // if ascii is more then half of terminal -- vertical
-            // System Infos
-            cprintln!("<bold, cyan>{}</>", host);
-            cprintln!("{}", "—".repeat(host.len()));
-            cprintln!("<bold><cyan>OS</>:</> {}", os);
-            cprintln!("<bold><cyan>Kernel</>:</> {}", kernel);
-            cprintln!("<bold><cyan>Uptime</>:</> {}", uptime);
-            cprintln!("<bold><cyan>Packages</>:</> {}", packages);
-            cprintln!("<bold><cyan>Shell</>:</> {}", shell);
-            cprintln!("<bold><cyan>Resolution</>:</> {}x{} {}Hz", resolution.width, resolution.height, resolution.refresh_rate);
-            cprintln!("<bold><cyan>WM</>:</> {}", wm);
-            cpu_print(cpus);
-            cprintln!("<bold><cyan>GPU</>:</> {}", gpu);
-            cprintln!("<bold><cyan>Memory</>:</> {}MB / {}MB", free_mem, available_mem);  
-            block_clr_print();
         } else { // -- horizontal
+            for info in infos.iter() {
+                if info.name == "host" {
+                    cprintln!("<bold, cyan>{}</>", info.value);
+                    cprintln!("{}", "-".repeat(info.value.len()));
+                    infos_lines_taken += 2;
+                } else {
+                    cprintln!("<bold><cyan>{}</>:</> {}", info.name , info.value);
+                    infos_lines_taken += 1;
+                }
+            }
+
+
+            block_clr_print(&mut infos_lines_taken); 
+
+
+            let ascii_str_splitted = ascii_str.split("\n");
+            let ascii_str_lines = ascii_str_splitted.clone().count() as u32;
             
+            if infos_lines_taken > ascii_str_lines { // TODO: wht if they are equal
+            } else { // infos lines are less than ascii str lines
+                let diff = ascii_str_lines - infos_lines_taken;
+                let infos_start = if(diff % 2 == 1){(diff+1)/2} else {diff/2};
+                // Now start the infos from infos_start, with the gap as GAP.
+
+                for (idx, line) in ascii_str_splitted.enumerate() {
+                    let idx = idx as u32;
+                    let mut line_str = String::from(line);
+                    if idx+1 >= infos_start {
+                        let info_idx = ((idx+1) - infos_start) as usize;
+                        if info_idx < infos.len() {
+                            let info = &infos[info_idx];
+                            let ascii_space = ascii_w - get_ascii_size(line).0 + GAP;
+                            line_str.push_str(" ".repeat(ascii_space.try_into().unwrap()).as_str());
+                            if info.name == "host" {
+                                line_str.push_str(format!("<cyan>{}</cyan>", info.value).as_str());
+                                line_str.push_str(format!("{}", "-".repeat(info.value.len())).as_str());
+                            } else {
+                                cprintln!("<bold><cyan>{}</>:</> {}", info.name , info.value);
+                                infos_lines_taken += 1;
+                            }
+                        }
+                    }
+                    print_ascii_line(line_str);
+                }
+            }
         }
     }
-    draw_ascii(ascii_str)
 }
 
 fn print_tagged_text(tag_name: String, text: String) { // prints using print macro, need to flush outside
@@ -219,13 +303,7 @@ fn get_ascii_size(ascii:&str) -> (u32, u32){
     (width, height)
 }
 
-fn draw_ascii(ascii:&str) {
-    for line in ascii.split("\n"){
-        print_ascii_line(line.to_string())
-    }
-}
-
-fn block_clr_print() {
+fn block_clr_print(infos_lines_taken: &mut u32) {
     println!("");
 
     cprint!("<bg:black>   </>");
@@ -249,15 +327,7 @@ fn block_clr_print() {
     std::io::stdout().flush().unwrap();
 
     cprintln!("<bg:rgb(211,211,211)>   </>");
-}
-
-fn cpu_print(cpus: Vec<Cpu>) {
-    cprint!("<bold><cyan>CPU</>: </>");
-    for cpu in cpus {
-        cprint!("{} ({}) @ {:.1}GHz", cpu.brand, cpu.mul, cpu.frequency)
-    }
-    std::io::stdout().flush().unwrap();
-    cprintln!("");
+    *infos_lines_taken += 3;
 }
 
 fn sec_to_readeable_time(secs: u64) -> String {
